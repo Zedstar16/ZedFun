@@ -44,15 +44,15 @@ class ZedFun extends PluginBase implements Listener
 
     public function giveZedBow(Player $p, $dartsize, $force, $frequency = 1, $automatic = 0)
     {
-        $name = self::prefix . "§l§aZed Bow" . self::suffix;
         $bow = ItemFactory::get(ItemIds::BOW);
         $name = $automatic == 0 ? "§l§aZed Bow" : "§l§6Zed Gun";
+        $shotsPerSec = (1/($frequency/20));
         $bow->setCustomName(self::prefix . $name . self::suffix);
         $nbt = $bow->getNamedTag();
         $nbt->setIntArray("bowdata", [$dartsize, $force, $frequency, $automatic]);
         $bow->setCompoundTag($nbt);
         $bow->addEnchantment(new EnchantmentInstance(new Enchantment(255, "", Enchantment::RARITY_COMMON, Enchantment::SLOT_ALL, Enchantment::SLOT_NONE, 1)));
-        $lore = $automatic == 0 ? ["§6The legendary §dZedBow", "§aDartsize: §b$dartsize", "§aForce: §b$force"] : ["§6The legendary §dZedGun", "§aBulletsize: §b$dartsize", "§aForce: §b$force", "§aShots/s: §b$frequency"];
+        $lore = $automatic == 0 ? ["§6The legendary §dZedBow", "§aDartsize: §b$dartsize", "§aForce: §b$force"] : ["§6The legendary §dZedGun", "§aBulletsize: §b$dartsize", "§aForce: §b$force", "§aShots/s: §b$shotsPerSec"];
         $bow->setLore($lore);
         $p->getInventory()->setItemInHand($bow);
         $p->sendMessage($name . " given");
@@ -74,8 +74,9 @@ class ZedFun extends PluginBase implements Listener
             }
 
             $cmdlist = [
-                "/zf bow (dartsize) (force)",
-                "/zf gun (bulletsize) (force) (frequency/s)",
+                "§6-=-=-= §aZedFun Help List §6-=-=-=",
+                "§b/zf bow §a(dartsize) (force)",
+                "§b/zf gun §a(bulletsize) (force) (frequency/s)",
             ];
             if (isset($args[0])) {
                 switch ($args[0]) {
@@ -84,9 +85,13 @@ class ZedFun extends PluginBase implements Listener
                         break;
                     case "gun":
                         if (count($args) == 4) {
-                            $frequency = 20 * (1 / $args[3]);
+                            $frequency = (int)(20 * (1 / $args[3]));
+                            if($frequency < 1){
+                                $sender->sendMessage("§cFrequency of bulletfire too high, max 20 shots/s");
+                                return false;
+                            }
                             $this->giveZedBow($sender, $args[1], $args[2], $frequency, 1);
-                        } else $sender->sendMessage("Usage: /zf gun (bulletsize) (force) (frequency/s)");
+                        } else $sender->sendMessage("§6Usage: §b/zf gun §a(bulletsize) (force) (frequency/s)");
                         break;
                     default:
                         $sender->sendMessage(implode("\n", $cmdlist));
