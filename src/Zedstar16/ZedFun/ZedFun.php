@@ -50,7 +50,6 @@ class ZedFun extends PluginBase implements Listener
         if(!file_exists($this->getDataFolder()."data.yml")){
             yaml_emit_file($this->getDataFolder()."data.yml", ["zed" => "lol"]);
         }
-        var_dump(self::getData());
         self::$data = self::getData();
 
     }
@@ -70,7 +69,6 @@ class ZedFun extends PluginBase implements Listener
        try{
            self::$data = self::getData();
            $e->setPlayerClass(ZedPlayer::class);
-           var_dump(self::$data);
        }catch (\Throwable $err){$this->getLogger()->warning($err->getMessage());}
     }
 
