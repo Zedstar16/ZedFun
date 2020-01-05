@@ -47,7 +47,9 @@ class ZedFun extends PluginBase implements Listener
         $this->getServer()->getPluginManager()->registerEvents(new EventListener(), $this);
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
         Entity::registerEntity(ZedArrow::class, true);
-        $this->saveResource("data.yml");
+        if(!file_exists($this->getDataFolder()."data.yml")){
+            yaml_emit_file($this->getDataFolder()."data.yml", ["zed" => "lol"]);
+        }
         var_dump(self::getData());
         self::$data = self::getData();
 
