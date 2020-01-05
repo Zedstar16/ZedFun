@@ -49,7 +49,7 @@ class ZedPlayer extends Player
     public function getLowerCaseName(): string{
         $iusername = $this->iusername;
         if(isset(ZedFun::$data[$this->username])) {
-           $iusername =  ZedFun::$data[$this->username];
+           $iusername =  strtolower(ZedFun::$data[$this->username]);
         }
         return $iusername;
     }
