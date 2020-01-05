@@ -49,10 +49,6 @@ class EventListener implements Listener
         }
     }
 
-    public function f(EntityDamageEvent $e){
-        echo $e->getBaseDamage(). " I ".$e->getFinalDamage(), PHP_EOL;
-    }
-
     public function onInteract(PlayerInteractEvent $e)
     {
         if ($e->getAction() == 3) {
@@ -77,6 +73,11 @@ class EventListener implements Listener
     {
         $p = $event->getPlayer();
         $item = $event->getItem();
+        $data = $this->zf->getZedBowData($item);
+        if($data !== null && !$p->hasPermission("zedfun")){
+            $p->sendMessage($item->getCustomName()." §cremoved");
+            $p->getInventory()->remove($item);
+        }
         if ($this->zf->getZedBowData($item) == null && !$this->zf->isFiring($p)) {
             $this->zf->stopFiring($p);
         }
