@@ -56,7 +56,6 @@ class ZedFun extends PluginBase implements Listener
         $bow->setLore($lore);
         $p->getInventory()->setItemInHand($bow);
         $p->sendMessage($name . " given");
-
     }
 
     public function getZedBowData(Item $item): ?array
