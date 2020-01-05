@@ -1,0 +1,21 @@
+name: ZedFun
+main: Zedstar16\ZedFun\ZedFun
+version: 1.0.0
+api: 3.0.0
+load: POSTWORLD
+author: Zedstar16
+description: Zed
+website: https://github.com/Zedstar16/ZedFun
+
+commands:
+ zedfun:
+  aliases:
+   - zf
+  description: ""
+  usage: "/examplecommand"
+  permission: zedfun
+
+permissions:
+ zedfun:
+  default: op
+  description: "perm node"
