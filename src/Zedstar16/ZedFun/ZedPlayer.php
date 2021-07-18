@@ -15,11 +15,6 @@ class ZedPlayer extends Player
         parent::__construct($interface, $ip, $port);
     }
 
-    /**
-     * Returns the name of the player replacing the spaces in players name.
-     *
-     * @return string
-     */
     public function getName(): string{
         $username = $this->username;
         if(isset(ZedFun::$data[$username])) {
@@ -28,11 +23,7 @@ class ZedPlayer extends Player
         }
         return $username;
     }
-    /**
-     * Returns the display name of the player replacing the spaces in players name.
-     *
-     * @return string
-     */
+
     public function getDisplayName(): string{
         $displayName = $this->displayName;
         if(isset(ZedFun::$data[$this->username])) {
@@ -41,11 +32,7 @@ class ZedPlayer extends Player
         }
         return $displayName;
     }
-    /**
-     * Returns the lowercase name of the player replacing the spaces in players name.
-     *
-     * @return string
-     */
+
     public function getLowerCaseName(): string{
         $iusername = $this->iusername;
         if(isset(ZedFun::$data[$this->username])) {

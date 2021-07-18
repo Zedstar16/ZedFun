@@ -19,3 +19,6 @@ permissions:
  zedfun:
   default: op
   description: "perm node"
+ zedgun:
+  default: op
+  description: "perm"

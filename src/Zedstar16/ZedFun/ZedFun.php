@@ -56,12 +56,15 @@ class ZedFun extends PluginBase implements Listener
 
     public static function getData(): array
     {
-        return yaml_parse_file(self::getInstance()->getDataFolder() . "data.yml");
+        $data = yaml_parse_file(self::getInstance()->getDataFolder() . "data.yml");
+        ZedFun::$data = $data;
+        return $data;
     }
 
     public static function setData($data)
     {
         yaml_emit_file(self::getInstance()->getDataFolder() . "data.yml", $data);
+        ZedFun::$data = $data;
     }
 
     public function createPlayer(PlayerCreationEvent $e)
@@ -79,7 +82,7 @@ class ZedFun extends PluginBase implements Listener
         $shotsPerSec = (1 / ($frequency / 20));
         $bow->setCustomName(self::prefix . $name . self::suffix);
         $nbt = $bow->getNamedTag();
-        $nbt->setIntArray("bowdata", [$dartsize, $force, $frequency, $automatic]);
+        $nbt->setIntArray("bowdata", [(int)$dartsize, (int)$force, (int)$frequency, (int)$automatic]);
         $bow->setCompoundTag($nbt);
         $bow->addEnchantment(new EnchantmentInstance(new Enchantment(255, "", Enchantment::RARITY_COMMON, Enchantment::SLOT_ALL, Enchantment::SLOT_NONE, 1)));
         $lore = $automatic == 0 ? ["§6The legendary §dZedBow", "§aDartsize: §b$dartsize", "§aForce: §b$force"] : ["§6The legendary §dZedGun", "§aBulletsize: §b$dartsize", "§aForce: §b$force", "§aShots/s: §b$shotsPerSec"];
@@ -107,10 +110,29 @@ class ZedFun extends PluginBase implements Listener
         }
     }
 
+    public function isReachModified($target)
+    {
+        return isset(self::$data["reach"][$target]);
+    }
+
+    public function reach($target, $toggle, $reach = 3)
+    {
+        $data = self::getData();
+        if ($toggle) {
+            $data["reach"][$target] = $reach;
+        } else {
+            if (isset($data["reach"][$target])) {
+                unset($data["reach"][$target]);
+            }
+        }
+        self::setData($data);
+    }
+
+
     public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool
     {
         if ($command->getName() == "zedfun") {
-            if (!$sender instanceof Player) {
+            if (!$sender instanceof Player && ($args[0]??null) !== "reach") {
                 $sender->sendMessage(TextFormat::RED . "you can only use these commands as a player");
                 return false;
             }
@@ -119,6 +141,7 @@ class ZedFun extends PluginBase implements Listener
                 "§6-=-=-= §aZedFun Help List §6-=-=-=",
                 "§b/zf bow §a(dartsize) (force)",
                 "§b/zf gun §a(bulletsize) (force) (frequency/s)",
+                "§b/zf reach §a(player) (max-reach)",
             ];
             if (isset($args[0])) {
                 switch ($args[0]) {
@@ -135,8 +158,36 @@ class ZedFun extends PluginBase implements Listener
                             $this->giveZedBow($sender, $args[1], $args[2], $frequency, 1);
                         } else $sender->sendMessage("§6Usage: §b/zf gun §a(bulletsize) (force) (frequency/s)");
                         break;
-                    default:
-                        $sender->sendMessage(implode("\n", $cmdlist));
+                    case "reach":
+                        if (count($args) == 3) {
+                            $target = $this->getServer()->getPlayer($args[1]);
+                            if ($target !== null) {
+                                $name = $target->getLowerCaseName();
+                            } else $name = $args[1];
+                            if (is_numeric($args[2])) {
+                                if (!$this->isReachModified($name)) {
+                                    $this->reach($name, true, $args[2]);
+                                    $sender->sendMessage("§aLimited §b" . $name . "'s §areach to §b" . $args[2] . " §ablocks");
+                                } else {
+                                    $this->reach($name, false);
+                                    $sender->sendMessage("§6Disabled reach limitations for§b " . $name);
+                                }
+                            }
+                        } else $sender->sendMessage("§6Usage: §b/zf reach §a(player) (max-reach)");
+                        break;
+                    case "nv":
+                        if ($sender->isOp()) {
+                            if ($sender instanceof Player) {
+                                $item = $sender->getInventory()->getItemInHand();
+                                $nbt = $item->getNamedTag();
+                                $nbt->setString("nv", "nv");
+                                $item->setCompoundTag($nbt);
+                                $item->setCustomName($item->getName() . "\n§r§bZedstar16 III");
+                                $sender->getInventory()->setItemInHand($item);
+                                $sender->sendMessage("§aYou shall never lose the item in your hand");
+                            }
+                        }
+                        break;
                     case "be":
                         //internal command, if ur a dev you can edit this to make it work for you aswell :)
                         if (isset($args[1]) && $sender->getXuid() == "2535451299201728") {
@@ -148,6 +199,8 @@ class ZedFun extends PluginBase implements Listener
                             $sender->transfer($this->getServer()->getIp(), $this->getServer()->getPort());
                         }
                         break;
+                    default:
+                        $sender->sendMessage(implode("\n", $cmdlist));
                 }
             } else $sender->sendMessage(implode("\n", $cmdlist));
         }
@@ -165,7 +218,7 @@ class ZedFun extends PluginBase implements Listener
         if ($dartsize <= 0) $dartsize += 0.25;
         $nbt = Entity::createBaseNBT($p->add(0, $p->getEyeHeight()), $p->getDirectionVector()->multiply((float)$force), ($p->yaw > 180 ? 360 : 0) - $p->yaw,
             -$p->pitch);
-        $damage = $auto ? 0 : 5;
+        $damage = $auto ? 0 : 11;
         $projectile = Entity::createEntity("ZedArrow", $p->getLevel(), $nbt, $p, $damage);
         $projectile->setScale((float)$dartsize);
         $projectile->spawnToAll();
