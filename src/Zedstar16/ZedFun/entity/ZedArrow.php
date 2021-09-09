@@ -8,6 +8,7 @@ use pocketmine\level\Level;
 use pocketmine\math\Vector3;
 use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\Player;
+use Zedstar16\ZedFun\ZedFun;
 
 class ZedArrow extends Arrow
 {

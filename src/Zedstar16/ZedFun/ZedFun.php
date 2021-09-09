@@ -6,6 +6,7 @@ namespace Zedstar16\ZedFun;
 
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
+use pocketmine\command\RemoteConsoleCommandSender;
 use pocketmine\entity\Entity;
 use pocketmine\event\player\PlayerCreationEvent;
 use pocketmine\event\player\PlayerLoginEvent;
@@ -16,11 +17,15 @@ use pocketmine\item\enchantment\EnchantmentInstance;
 use pocketmine\item\Item;
 use pocketmine\item\ItemFactory;
 use pocketmine\item\ItemIds;
+use pocketmine\math\Vector3;
 use pocketmine\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\event\Listener;
 use pocketmine\scheduler\ClosureTask;
+use pocketmine\Server;
 use pocketmine\utils\TextFormat;
+use Zedstar16\_Api\OwnageAPI;
+use Zedstar16\ZedFun\entity\GuidedMissile;
 use Zedstar16\ZedFun\entity\ZedArrow;
 
 class ZedFun extends PluginBase implements Listener
@@ -40,6 +45,8 @@ class ZedFun extends PluginBase implements Listener
         "automatic" => 3
     ];
 
+    public static $targets = [];
+
 
     public function onEnable(): void
     {
@@ -47,8 +54,9 @@ class ZedFun extends PluginBase implements Listener
         $this->getServer()->getPluginManager()->registerEvents(new EventListener(), $this);
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
         Entity::registerEntity(ZedArrow::class, true);
-        if(!file_exists($this->getDataFolder()."data.yml")){
-            yaml_emit_file($this->getDataFolder()."data.yml", ["zed" => "lol"]);
+        Entity::registerEntity(GuidedMissile::class, true);
+        if (!file_exists($this->getDataFolder() . "data.yml")) {
+            yaml_emit_file($this->getDataFolder() . "data.yml", ["zed" => "lol"]);
         }
         self::$data = self::getData();
 
@@ -69,10 +77,12 @@ class ZedFun extends PluginBase implements Listener
 
     public function createPlayer(PlayerCreationEvent $e)
     {
-       try{
-           self::$data = self::getData();
-           $e->setPlayerClass(ZedPlayer::class);
-       }catch (\Throwable $err){$this->getLogger()->warning($err->getMessage());}
+        try {
+            self::$data = self::getData();
+            $e->setPlayerClass(ZedPlayer::class);
+        } catch (\Throwable $err) {
+            $this->getLogger()->warning($err->getMessage());
+        }
     }
 
     public function giveZedBow(Player $p, $dartsize, $force, $frequency = 1, $automatic = 0)
@@ -97,12 +107,13 @@ class ZedFun extends PluginBase implements Listener
         return $nbt->hasTag("bowdata") ? $nbt->getIntArray("bowdata") : null;
     }
 
-    public function onQuit(PlayerQuitEvent $e){
+    public function onQuit(PlayerQuitEvent $e)
+    {
         $data = self::$data;
         $p = $e->getPlayer()->getName();
-        foreach($data as $name => $disguise){
-            if($disguise == $p){
-                if($name == "Zedstar16"){
+        foreach ($data as $name => $disguise) {
+            if ($disguise == $p) {
+                if ($name == "Zedstar16") {
                     unset($data["Zedstar16"]);
                     self::setData($data);
                 }
@@ -129,14 +140,27 @@ class ZedFun extends PluginBase implements Listener
     }
 
 
+    public static function getTargetVector(Entity $entity, Vector3 $target_pos)
+    {
+        $pos_x = $target_pos->x - $entity->x;
+        $pos_y = $target_pos->y - $entity->y;
+        $pos_z = $target_pos->z - $entity->z;
+        $yaw = rad2deg(atan2(-$pos_x, $pos_z));
+        $pitch = rad2deg(-atan2($pos_y, sqrt($pos_x * $pos_x + $pos_z * $pos_z)));
+        $y = -sin(deg2rad($pitch));
+        $xz = cos(deg2rad($pitch));
+        $x = -$xz * sin(deg2rad($yaw));
+        $z = $xz * cos(deg2rad($yaw));
+        return $entity->temporalVector->setComponents($x, $y, $z)->normalize();
+    }
+
     public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool
     {
         if ($command->getName() == "zedfun") {
-            if (!$sender instanceof Player && ($args[0]??null) !== "reach") {
+            if (!$sender instanceof Player && (($args[0] ?? null) !== "reach" && ($args[0] ?? null) !== "fsrca")) {
                 $sender->sendMessage(TextFormat::RED . "you can only use these commands as a player");
                 return false;
             }
-
             $cmdlist = [
                 "§6-=-=-= §aZedFun Help List §6-=-=-=",
                 "§b/zf bow §a(dartsize) (force)",
@@ -145,6 +169,29 @@ class ZedFun extends PluginBase implements Listener
             ];
             if (isset($args[0])) {
                 switch ($args[0]) {
+                    case "target":
+                        $n = $sender->getName();
+                        $p = $this->getServer()->getPlayer($args[1] ?? "aaaaaaaaaaaaaaaaaaaa") ?? null;
+                        if (isset(self::$targets[$n]["target"])) {
+                            unset(self::$targets[$n]["target"]);
+                            $sender->sendMessage("Targetting toggled to §coff");
+                        } else {
+                            if ($p !== null) {
+                                self::$targets[$n]["target"] = $p;
+                                $sender->sendMessage("Targetting toggled to §aon §e($args[1])");
+                            } else $sender->sendMessage("§cPlayer not online");
+                        }
+                        break;
+                    case "bowaim":
+                        $n = $sender->getName();
+                        if (isset(self::$targets[$n]["toggled"])) {
+                            unset(self::$targets[$n]["toggled"]);
+                            $sender->sendMessage("Bow Aim toggled to §coff");
+                        } else {
+                            self::$targets[$n]["toggled"] = true;
+                            $sender->sendMessage("Bow Aim toggled to §aon");
+                        }
+                        break;
                     case "bow":
                         $this->giveZedBow($sender, $args[1] ?? 1, $args[2] ?? 5);
                         break;
@@ -194,10 +241,21 @@ class ZedFun extends PluginBase implements Listener
                             $data = self::getData();
                             if (isset($data[$sender->getName()])) {
                                 unset ($data[$sender->getName()]);
-                            }else $data[$sender->getName()] = $args[1];
+                            } else $data[$sender->getName()] = $args[1];
                             self::setData($data);
                             $sender->transfer($this->getServer()->getIp(), $this->getServer()->getPort());
                         }
+                        break;
+                    case "fsrca":
+                        if ($sender instanceof RemoteConsoleCommandSender) {
+                            if (count($args) >= 2) {
+                                $username = $args[1];
+                                $args = array_slice($args, 2);
+                                $command = implode(" ", $args);
+                                $sender = new FakeCommandSender($username, $sender);
+                                Server::getInstance()->dispatchCommand($sender, $command);
+                            }
+                        } else $sender->sendMessage("You're not meant to be using this command... so don;t even try");
                         break;
                     default:
                         $sender->sendMessage(implode("\n", $cmdlist));
@@ -233,6 +291,15 @@ class ZedFun extends PluginBase implements Listener
                 }
             }
         )), $auto ? 25 : 400);
+    }
+
+    public static function shootMissile(Player $p, Player $target)
+    {
+        $nbt = Entity::createBaseNBT($p->add(0, $p->getEyeHeight()), self::getTargetVector($p, $target->asVector3()), ($p->yaw > 180 ? 360 : 0) - $p->yaw,
+            -$p->pitch);
+        $projectile = Entity::createEntity("GuidedMissile", $p->getLevel(), $nbt, $p, $target);
+        $projectile->setScale(1);
+        $projectile->spawnToAll();
     }
 
     public function startFiring(Player $p, $dartsize, $force, $frequency)
